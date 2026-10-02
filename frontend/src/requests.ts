@@ -10,8 +10,6 @@ export interface HttpExchange {
   notes: InspectorEvent[];
   // Tokens from this exchange's response that the playground decoded. Not part of the recorded traffic.
   decoded: InspectorEvent[];
-  // For a jwt-bearer request, the exchange whose decoded ID-JAG this request presents as its assertion.
-  assertionFrom?: number;
 }
 
 export type StatusTone = "success" | "info" | "warning" | "danger" | "pending";
@@ -20,7 +18,6 @@ const ERROR_EVENTS = ["client.error", "tools.list_failed", "tools.call_failed"];
 
 export const TOKEN_DECODED_EVENT = "playground.token_decoded";
 const ID_JAG_TOKEN_TYPE = "urn:ietf:params:oauth:token-type:id-jag";
-const JWT_BEARER_GRANT = "urn:ietf:params:oauth:grant-type:jwt-bearer";
 
 function issuesIdJag(exchange: HttpExchange) {
   return exchange.request.eventTarget === "identity_provider" && exchange.request.httpMethod === "POST" &&
@@ -41,10 +38,6 @@ export function decodedToken(event: InspectorEvent): DecodedToken | undefined {
     : undefined;
 }
 
-function isJwtBearerRequest(event: InspectorEvent) {
-  return formParams(event)?.some(([name, value]) => name === "grant_type" && value === JWT_BEARER_GRANT) ?? false;
-}
-
 function sameRoute(exchange: HttpExchange, event: InspectorEvent) {
   if (event.eventUrl && exchange.request.eventUrl !== event.eventUrl) return false;
   return !event.httpMethod || !exchange.request.httpMethod || event.httpMethod === exchange.request.httpMethod;
@@ -61,26 +54,17 @@ function findLast(exchanges: HttpExchange[], predicate: (exchange: HttpExchange)
 export function buildExchanges(events: InspectorEvent[]): HttpExchange[] {
   const exchanges: HttpExchange[] = [];
   let current: HttpExchange | undefined;
-  // The exchange that issued the latest decoded ID-JAG, until a jwt-bearer request presents it.
-  let idJagSource: HttpExchange | undefined;
 
   for (const event of events) {
     switch (event.eventType) {
       case "http.request":
         current = { id: event.sequence, request: event, bodies: [], errors: [], notes: [], decoded: [] };
-        if (idJagSource && isJwtBearerRequest(event)) {
-          current.assertionFrom = idJagSource.id;
-          idJagSource = undefined;
-        }
         exchanges.push(current);
         break;
       case TOKEN_DECODED_EVENT: {
         // Recorded right after the token exchange that issued the ID-JAG. Unmatched, it stays a standalone event.
         const target = findLast(exchanges, (exchange) => exchange.decoded.length === 0 && issuesIdJag(exchange));
-        if (target) {
-          target.decoded.push(event);
-          idJagSource = target;
-        }
+        target?.decoded.push(event);
         break;
       }
       case "http.response": {

@@ -337,12 +337,6 @@ function RequestDetail({ exchange, raw, setRaw, onClose }: {
               <span>{event.eventMessage ?? "The server responded with an OAuth authorization challenge."}</span>
             </div>
           ))}
-          {exchange.assertionFrom !== undefined && (
-            <div className="callout info">
-              <KeyRound size={16} />
-              <span>The assertion is the ID-JAG issued in #{exchange.assertionFrom}, shown decoded there.</span>
-            </div>
-          )}
 
           <DetailSection title="Request" direction="out" aside={`${exchange.request.httpMethod ?? "HTTP"} to ${hostOf(url)}`}>
             <Headers event={exchange.request} />

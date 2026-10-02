@@ -85,18 +85,11 @@ function decodedTokenLines(exchange: HttpExchange): string[] {
   });
 }
 
-function assertionNote(exchange: HttpExchange) {
-  return exchange.assertionFrom === undefined ? undefined
-    : `assertion is the ID-JAG decoded in #${exchange.assertionFrom} (added by the playground)`;
-}
-
 function exchangeLines(exchange: HttpExchange): string[] {
   const { request, response } = exchange;
   const target = targetLabel(request.eventTarget);
   const lines = [`>>> #${request.sequence}  ${request.timestamp}  to ${target}`];
   if (request.eventMessage) lines.push(`# ${request.eventMessage}`);
-  const assertion = assertionNote(exchange);
-  if (assertion) lines.push(`# ${assertion}`);
   lines.push(...withBody([`${request.httpMethod ?? "HTTP"} ${request.eventUrl ?? ""}`, ...headerLines(request)], requestBodyText(request)));
   lines.push("");
 
@@ -185,7 +178,6 @@ function harEntry(exchange: HttpExchange) {
   const time = durationMs(exchange) ?? 0;
   const comments = [
     request.eventMessage,
-    assertionNote(exchange),
     response?.eventMessage,
     ...exchange.notes.map((note) => note.eventMessage),
     ...exchange.errors.map((error) => error.eventMessage),
